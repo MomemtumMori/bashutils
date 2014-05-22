@@ -302,7 +302,8 @@ decge() # $var $val [$args [$sep [$emptySep?]]]
     IFS=$oIFS
 }
 
-# Execute a command from a string, without eval
+# Execute a command from a string, without eval. 
+#  Only the first argument is read.
 xcmd() # $cmd OUT$_XCMD_cmd OUT$_XCMD_parms
 {    
     local fullcmd
