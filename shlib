@@ -1,0 +1,424 @@
+#!/bin/bash
+# Lib file
+# NB* Some of the core functions like show and xi call set +x to reduce clutter 
+#   when debugging with set -x
+
+############
+# Utilities
+
+# If SHLIB has not been initialized yet, do it.
+# This locking mechanism allows SHLIB to be safely reloaded on-the-fly
+if [ -z "$SHLIB" ] || ! $SHLIB ; then
+    TS="$(date +%s)"
+    RX_INTEGER='^-*[0-9]+$'
+    SED_UNCOLOR='s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g'
+    SHOW=true # Is show() enabled?
+    SHOW_FUNC='_show_full' # _show_min (ingores all but SHOW and SHOW_SEPARATOR)
+    SHOW_COLORS=true # Allow colors in the label, overrides to false when outside a terminal
+    SHOW_COLOR_RESET="\033[0m" # Do not change this value.
+    SHOW_PADDING="        " # tabs of 8 spaces
+    SHOW_MAGIC=2  # tweaks the label's length, with a touch of magic
+    SHOW_LINE_LENGTH=80 # Used as default value when not in a terminal
+    SHOW_LINE_MIN_LENGTH=60 # Prevents show from creating paragraphs with only a few charaters each
+    SHOW_QUOTE="\`"
+    SHOW_SEPARATOR=":"
+    SHOW_PARAGRAPH_MARKER="$SHOW_SEPARATOR"
+    SHOW_PREFIX=' ' # Overrided when _ARG_DEBUG=true
+    _SHOW_ID=''
+    _SHOW_COLOR="" # \033[... color code
+
+    XI_TOLERATE=false
+    XI_REDACT=false
+    XI_QUIET=false
+
+
+    # "Completed"
+    SHLIB=true
+
+fi
+
+# Displays a variable's value with itself
+dbg() # var
+{
+    #set +x
+    #olds=$SHOW_SEPARATOR
+    #SHOW_SEPARATOR='='
+    #oldp=$PARAGRAPH_MARKER
+    #SHOW_PARAGRAPH_MARKER='>'
+    show "\$$@" "$@"
+    #SHOW_PARAGRAPH_MARKER=$oldp   
+    #SHOW_SEPARATOR=$olds   
+}
+
+prnt() # Display a string
+{    
+    #set +x
+    olds=$SHOW_SEPARATOR
+    SHOW_SEPARATOR=''
+    oldp=$SHOW_PADDING
+    SHOW_PADDING=''
+    disp '' "$@"
+    SHOW_PADDING=$oldp   
+    SHOW_SEPARATOR=$olds   
+}
+
+# Displays a string with a label
+disp() # $lbl $msg
+{
+    #set +x
+    local lbl="$1"
+    shift
+    local msg="$@"
+    
+    oldq=$SHOW_QUOTE
+    SHOW_QUOTE=''
+    show "$lbl" msg
+    SHOW_QUOTE=$oldq 
+}
+
+# Displays a variable's value with a label
+# - Can be told to ignore any request to print (SHOW)
+# - Automaticaly adjust its printing size to the current terminal's width or SHOW_LINE_LENGTH
+#   Long lines will be split at the nearest space or arbitrarily if none are found
+# - Can detect colors and adjust its output according to the context (SHOW_COLOR)
+# - Automaticaly aligns values along a predetermined set of columns (SHOW_PADDING)
+# - Can distinguish output from multiple threads (subshells), set _SHOW_ID to 
+#       an unique value after starting a new thread 
+# NB With SHOW_MAGIC=2 and SHOW_PADDING=#8 labels should not exceed 8 characters
+#    If using _SHOW_ID=#1, 4 or 12.
+cat >/dev/null << ENDCOMMENT
+1:        1
+12:       1
+123:      1
+1234:     1
+12345:    1
+123456:   1
+1234567:  1
+12345678: 1
+123456789:        1
+1234567890:       1
+[1] 1:    1
+[1] 12:   1
+[1] 123:  1
+[1] 1234: 1
+[1] 12345:        1
+[1] 123456:       1
+[1] 1234567:      1
+[1] 12345678:     1
+[1] 123456789:    1
+[1] 1234567890:   1
+[1] 12345678901:  1
+[1] 123456789012: 1
+[1] 1234567890123:        1
+[1] 12345678901234:       1
+ENDCOMMENT
+_show_full() # $lbl $var
+{    
+    # Determine the line's length
+    if [ -t 1 ] ; then
+        local lineL=`tput cols`
+    else
+        local lineL="$SHOW_LINE_LENGTH"
+    fi
+    if [ "$lineL" -lt "$SHOW_LINE_MIN_LENGTH" ] ; then
+        lineL="$SHOW_LINE_MIN_LENGTH"
+    fi        
+    
+    # Set the prefix
+    local prefix="$SHOW_PREFIX"
+    if $_ARG_DEBUG ; then
+        # Set alternative prefix
+        prefix=`printf "%-8s" "($cpid)"`
+    fi
+    local prefixL=${#prefix}
+    
+    # Calculate the marker's length    
+    local paragraphMarkerL=${#SHOW_PARAGRAPH_MARKER}
+    
+    # Calculate the prefix's length
+    local quoteL=${#SHOW_QUOTE}    
+    
+    # Assemble the label
+    local label="$1$SHOW_SEPARATOR"
+    if ! [ -z $_SHOW_ID ] ; then
+        label="[$_SHOW_ID] $label"
+    fi
+    shift
+    
+    # Assemble alternative label
+    # NB This label is stripped from any color code (hidden) characters. 
+    #    Will be used to calculate true label length.
+    local labelColorless=`printf \'"$label"\' | sed -r "$SED_UNCOLOR"`
+    local -i labelColorlessL=${#labelColorless}-2
+    
+    # Expand received variable 
+    local text="${!@}"
+    #set -x
+    local textColorless=`printf \'"$text"\' | sed -r "$SED_UNCOLOR"`
+    #set +x
+    # Dertermine correct label and text version
+    #   Either colors are disabled or not in a terminal
+    if [[ ! $SHOW_COLORS || ! -t 1 ]] ; then
+        local colorless=true
+        label="$labelColorless"
+        text="$textColorless"
+        local colorReset=""
+    else
+        local colorless=false
+        local colorReset="$SHOW_COLOR_RESET"
+    fi        
+    
+    # Forge padding
+    local showPaddingL=${#SHOW_PADDING}
+    local padding="${SHOW_PADDING:$((($labelColorlessL-$SHOW_MAGIC)%(showPaddingL>0?showPaddingL:1)))}"
+    local paddingL=${#padding}
+        
+    local isParagraph=false
+    
+    while true; do
+        
+        # Calculate the text's length
+        if ! $colorless ; then
+            local textColorless=`printf \'"$text"\' | sed -r "$SED_UNCOLOR"`
+            local -i textL=${#textColorless}-2
+        else
+            local textL=${#text}
+        fi
+        
+        # Calculate the text's maximum length for a single line
+        local maxL=$(($lineL-$prefixL-$labelColorlessL-$paddingL-$quoteL*2))
+        
+        # Is there too much text for a single line?
+        if [ "$textL" -gt "$maxL" ] ; then
+            # Yes? Try to find a space where the text could be cut
+            local lastSpaceOnLinePos=`strposbef "$text" ' ' "$maxL"`
+            # Were there any?
+            if [ "$lastSpaceOnLinePos" -le "0" ] ; then
+                # No? Take the maximum amount of characters
+                local remainingText=${text:$maxL}
+                text=${text:0:$maxL}
+            else
+                # Yes? Take everything before it
+                local remainingText=${text:$lastSpaceOnLinePos}
+                text=${text:0:$lastSpaceOnLinePos}
+            fi
+        else
+            # No? What's the matter then?
+            remainingText=''
+        fi
+        
+        # Print the assembled values
+        printf "%b%b%b%b%b%b\n" "$prefix" "$label" "$padding" "$SHOW_QUOTE" "$_SHOW_COLOR$text$colorReset" "$SHOW_QUOTE"
+        
+        # Emulate do-while
+        # Is there something left to print?
+        if [ -z "$text" ] || [ -z "$remainingText" ] ; then
+            # No?
+            break
+        else
+            # Yes?
+            # Is this the first line?
+            if ! $isParagraph ; then
+                # Yes? It is now a paragraph
+                isParagraph=true
+                
+                # Concatenate the marker
+                label="$label$SHOW_PARAGRAPH_MARKER"
+                # Update the length
+                labelColorlessL=$((labelColorlessL+paragraphMarkerL))
+                # Truncate the padding
+                padding=${padding:$paragraphMarkerL}
+            fi
+            
+            # Set the remainder
+            text="$remainingText"
+        fi
+    done
+}
+
+_show_min()
+{
+    printf "${1}$SHOW_SEPARATOR ${!2}\n"    
+}
+
+show() # $lbl $var
+{
+    local cpid=`sh -c 'echo $PPID'`
+    ( set +x
+
+    # Is show active?
+    if ! $SHOW ; then 
+        return 1 ; 
+    fi
+    
+    "$SHOW_FUNC" "$1" "$2"
+    )
+}
+
+# Use when displaying ...
+# ... messages in debug mode (use dbg to output raw data)
+sdbg()  { disp '\033[34mInfo\033[0m' "$@" ; }       # Blue
+# ... hints on how to proceed next
+shint() { disp '\033[1;36mHint\033[0m' "$@" ; }     # Bold Teal
+# ... messages that should always be seen
+sinfo() { disp '\033[1;34mInfo\033[0m' "$@" ; }     # Bold Blue
+# ... something was unexpected or could not be completed
+swarn() { disp '\033[1;33mWarn\033[0m' "$@" ; }     # Bold Yellow
+# ... an unrecoverable error
+sfail() { disp '\033[1;31mFail\033[0m' "$@" ; }     # Bold Red
+
+waitall()
+{
+    for pid in $@ ; do
+        # Is process running?
+        if ps -p $pid 2>&1 >/dev/null ; then
+            wait $pid
+        fi
+    done
+}
+
+# Secure way of indirectly assigning a variable. eval is evil.
+decg() # $var $val [$args [$sep [$emptySep?]]]
+{
+    local oIFS=$IFS
+    if [[ -z $4 ]] || $emptySep ; then
+        IFS="$4" 
+    fi
+    
+    read $3 "$1" <<< "$2"
+    
+    IFS=$oIFS
+}
+
+# Identical to decg but uses the expanded $val instead of $val itself
+decge() # $var $val [$args [$sep [$emptySep?]]]
+{
+    local oIFS=$IFS
+    if [[ -z $4 ]] || $emptySep ; then
+        IFS="$4" 
+    fi
+    
+    read $3 "$1" <<< "${!2}"
+    
+    IFS=$oIFS
+}
+
+# Execute a command from a string, without eval
+xcmd() # $cmd OUT$_XCMD_cmd OUT$_XCMD_parms
+{    
+    local fullcmd
+    decg fullcmd "$1" -ra ' '
+    _XCMD_cmd=${fullcmd[0]}
+    _XCMD_parms=${fullcmd[@]:1}
+    
+    if $_ARG_DEBUG ; then
+        dbg _XCMD_cmd
+        dbg _XCMD_parms
+    fi
+    
+    if type "$_XCMD_cmd" > /dev/null ; then
+        "$_XCMD_cmd" "$_XCMD_parms"
+    else
+        unset _XCMD_cmd
+        unset _XCMD_parms
+        die "Command not found"
+    fi
+}
+
+#   `upper str` = STR
+upper()
+{
+    echo `echo "$@" | tr '[:lower:]' '[:upper:]'`
+}
+
+lower()
+{
+    echo `echo "$@" | tr '[:upper:]' '[:lower:]'`
+}
+
+strpos() # $string $substr
+{     
+    local part="${1%%$2*}" # longest match
+    [ "$part" = "$1" ] && echo "-1" || echo "${#part}"
+}
+
+strposbef() # $string $substring $beforeposition
+{
+    local ss=${1:0:$3}
+    local part="${ss%$2*}" # shortest match
+    [ "$part" = "$1" ] && echo "-1" || echo "${#part}"
+}
+
+get() # $field $default [$do [$args]]
+{
+    local default=${!2}
+    [[ -z ${!1} ]] && if $_ARG_FILL_UNSET
+    then decg "$1" "$default" $4
+    else 
+        $3
+    fi    
+}
+
+ask() # $field $default $lbl [$do [$args]]
+{
+    local default=${!2}
+    [[ -z ${!1} ]] && if $_ARG_FILL_UNSET
+    then decg "$1" "$default" $5
+    else
+        $4
+        read -e -p "$3" -i "$default" $5 $1
+    fi
+}
+
+askconfirm()
+{
+    local oFU=$_ARG_FILL_UNSET
+    _ARG_FILL_UNSET=false
+    local answer
+    while true ; do
+        ask answer 'Y' "$@ [Y/n]" 
+        [[ $answer =~ ^([Yy]|[Yy][Ee][Ss])$ ]] && return 0
+        [[ $answer =~ ^([Nn]|[Nn][Oo])$ ]] && return 1
+        unset answer
+    done
+    _ARG_FILL_UNSET=$oFU
+}
+
+# Repeat a command several times
+repeat() # $times $cmd    
+{
+    local times="$1"
+    shift   
+    local i
+    for ((i=0; i!=$times; ++i)) ; do    
+        xcmd "$@"
+    done
+}
+
+# Specialized
+
+# Command interpreter
+#   The scope in which it is called should be sanitized to prevent sentive 
+#       data from being accessible to executed commands
+icmd() # $strcmd
+{    
+    if [[ $1 == $MODULE_CALL_PREFIX* ]] ; then
+        # The prefix prevents unauthorized calls
+        xcmd "$MODULE_PREFIX${1:1}"
+    else
+        cmd "$1"
+    fi
+}
+
+# Register the last thread's pid in the given list 
+#   (and wait for it to complete, if required)
+registerThread() # $listname
+{
+    decg "$1" "${!1} $!"
+    echo $! >> $_SSPIDS_FILE
+    
+    if ! $_ARG_THREAD ; then            
+        wait $!
+    fi
+}
+
