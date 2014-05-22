@@ -24,11 +24,16 @@ if [ -z "$SHLIB" ] || ! $SHLIB ; then
     SHOW_PARAGRAPH_MARKER="$SHOW_SEPARATOR" # The string indicating the start of 
                             #  a paragraph
     SHOW_PREFIX=' '         # The string appended before each output. Overrided 
-                            #  when _ARG_DEBUG=true
+                            #  when _ARG_DEBUG=true to the current pid.
     _SHOW_ID=''             # When using multiple threads, set this to an unique
                             #  value to distinguish outputs
     _SHOW_COLOR=""          # \033[... color code to print outputs in.
     
+    _ARG_THREAD=true        # Are threads allowed?
+    _ARG_DEBUG=false        # Are we debugging?
+    _ARG_FILL_UNSET=false   # When prompting the user for input and the 
+                            #  receiving field as not already been set, is the 
+                            #  default used instead?
     # Do not edit. 
     SED_UNCOLOR='s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g' # Used to remove 
                             #  color codes.
