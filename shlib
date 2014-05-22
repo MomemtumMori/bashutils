@@ -1,7 +1,7 @@
 #!/bin/bash
 # Lib file
-# NB* Some of the core functions like show and xi call set +x to reduce clutter 
-#   when debugging with set -x
+# NB* Some of the core functions call `set +x` to reduce clutter when debugging 
+#   with set -x
 
 ############
 # Utilities
@@ -9,28 +9,30 @@
 # If SHLIB has not been initialized yet, do it.
 # This locking mechanism allows SHLIB to be safely reloaded on-the-fly
 if [ -z "$SHLIB" ] || ! $SHLIB ; then
-    TS="$(date +%s)"
-    RX_INTEGER='^-*[0-9]+$'
-    SED_UNCOLOR='s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g'
-    SHOW=true # Is show() enabled?
-    SHOW_FUNC='_show_full' # _show_min (ingores all but SHOW and SHOW_SEPARATOR)
-    SHOW_COLORS=true # Allow colors in the label, overrides to false when outside a terminal
+    SHOW=true               # Dynamicly hide or show outputs.
+    SHOW_FUNC='_show_full'  # Which SHOW to use (_show_min or _show_full)
+    SHOW_COLORS=true        # Allow colors in the label, overrides to false when 
+                            #  outside a terminal
     SHOW_COLOR_RESET="\033[0m" # Do not change this value.
-    SHOW_PADDING="        " # tabs of 8 spaces
-    SHOW_MAGIC=2  # tweaks the label's length, with a touch of magic
-    SHOW_LINE_LENGTH=80 # Used as default value when not in a terminal
-    SHOW_LINE_MIN_LENGTH=60 # Prevents show from creating paragraphs with only a few charaters each
-    SHOW_QUOTE="\`"
-    SHOW_SEPARATOR=":"
-    SHOW_PARAGRAPH_MARKER="$SHOW_SEPARATOR"
-    SHOW_PREFIX=' ' # Overrided when _ARG_DEBUG=true
-    _SHOW_ID=''
-    _SHOW_COLOR="" # \033[... color code
-
-    XI_TOLERATE=false
-    XI_REDACT=false
-    XI_QUIET=false
-
+    SHOW_PADDING="        " # Width of tabs (can be any string)
+    SHOW_MAGIC=2            # Tweaks the label's length, with a touch of magic
+    SHOW_LINE_LENGTH=80     # Used as default value when not in a terminal
+    SHOW_LINE_MIN_LENGTH=60 # Prevents show from creating paragraphs with only a
+                            #  few charaters each
+    SHOW_QUOTE="\`"         # The string used to quote values
+    SHOW_SEPARATOR=":"      # The string used to separate labels a values
+    SHOW_PARAGRAPH_MARKER="$SHOW_SEPARATOR" # The string indicating the start of 
+                            #  a paragraph
+    SHOW_PREFIX=' '         # The string appended before each output. Overrided 
+                            #  when _ARG_DEBUG=true
+    _SHOW_ID=''             # When using multiple threads, set this to an unique
+                            #  value to distinguish outputs
+    _SHOW_COLOR=""          # \033[... color code to print outputs in.
+    
+    # Do not edit. 
+    SED_UNCOLOR='s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g' # Used to remove 
+                            #  color codes.
+    # Do not edit. 
 
     # "Completed"
     SHLIB=true
@@ -38,7 +40,7 @@ if [ -z "$SHLIB" ] || ! $SHLIB ; then
 fi
 
 # Displays a variable's value with itself
-dbg() # var
+dbg() # $var
 {
     #set +x
     #olds=$SHOW_SEPARATOR
@@ -50,7 +52,8 @@ dbg() # var
     #SHOW_SEPARATOR=$olds   
 }
 
-prnt() # Display a string
+# Display a string
+prnt() # $@
 {    
     #set +x
     olds=$SHOW_SEPARATOR
@@ -236,7 +239,8 @@ _show_full() # $lbl $var
     done
 }
 
-_show_min()
+# ingores all options for SHOW but SHOW_SEPARATOR
+_show_min() # $lbl $var
 {
     printf "${1}$SHOW_SEPARATOR ${!2}\n"    
 }
@@ -266,16 +270,6 @@ sinfo() { disp '\033[1;34mInfo\033[0m' "$@" ; }     # Bold Blue
 swarn() { disp '\033[1;33mWarn\033[0m' "$@" ; }     # Bold Yellow
 # ... an unrecoverable error
 sfail() { disp '\033[1;31mFail\033[0m' "$@" ; }     # Bold Red
-
-waitall()
-{
-    for pid in $@ ; do
-        # Is process running?
-        if ps -p $pid 2>&1 >/dev/null ; then
-            wait $pid
-        fi
-    done
-}
 
 # Secure way of indirectly assigning a variable. eval is evil.
 decg() # $var $val [$args [$sep [$emptySep?]]]
@@ -370,7 +364,8 @@ ask() # $field $default $lbl [$do [$args]]
     fi
 }
 
-askconfirm()
+# Prompt to use for confirmation
+askconfirm() # $question
 {
     local oFU=$_ARG_FILL_UNSET
     _ARG_FILL_UNSET=false
@@ -395,21 +390,6 @@ repeat() # $times $cmd
     done
 }
 
-# Specialized
-
-# Command interpreter
-#   The scope in which it is called should be sanitized to prevent sentive 
-#       data from being accessible to executed commands
-icmd() # $strcmd
-{    
-    if [[ $1 == $MODULE_CALL_PREFIX* ]] ; then
-        # The prefix prevents unauthorized calls
-        xcmd "$MODULE_PREFIX${1:1}"
-    else
-        cmd "$1"
-    fi
-}
-
 # Register the last thread's pid in the given list 
 #   (and wait for it to complete, if required)
 registerThread() # $listname
@@ -420,5 +400,16 @@ registerThread() # $listname
     if ! $_ARG_THREAD ; then            
         wait $!
     fi
+}
+
+# Wait for all process to complete
+waitall() # $array of pid
+{
+    for pid in $@ ; do
+        # Is process running?
+        if ps -p $pid 2>&1 >/dev/null ; then
+            wait $pid
+        fi
+    done
 }
 
