@@ -325,6 +325,13 @@ xcmd() # $cmd OUT$_XCMD_cmd OUT$_XCMD_parms
     fi
 }
 
+# Displays an error in the console to warn the user and exits.
+die() # $reason
+{
+    sfail "$@"
+	exit 1
+}
+
 #   `upper str` = STR
 upper()
 {
