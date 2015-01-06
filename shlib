@@ -419,3 +419,22 @@ waitall() # $array of pid
     done
 }
 
+# Modified version of http://stackoverflow.com/a/246128
+# Obtains the absolute path to the script, the filename and the absolute path 
+#  to the current directory.
+findSelfFromHere() # OUT$_FSFH_directory OUT$_FSFH_file OUT$_FSFH_self
+{
+    local src="${BASH_SOURCE[0]}"    
+    # resolve $src until the file is no longer a symlink
+    while [ -h "$src" ]; do 
+      local directory=`cd -P "$(dirname "$src")" && pwd`
+      src=`readlink "$src"`
+      # if $src was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+      [[ $src != /* ]] && src="$directory/$src" 
+    done
+    directory=`cd -P "$(dirname "$src")" && pwd`
+    
+    _FSFH_directory="$directory"
+    _FSFH_file=`basename $src`
+    _FSFH_self="$_FSFH_directory/$_FSFH_file"
+}
