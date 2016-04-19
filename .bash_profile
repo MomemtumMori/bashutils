@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-alias l="LC_COLLATE=C /bin/ls -CFal --color=always | more"
+alias l="LC_COLLATE=C /bin/ls -CFal --color=always"
 
 init_logname_() {
   logname_=$SUDO_USER
@@ -100,6 +100,6 @@ cf() {
 
 
 PS1=$(
-  printf "# %s: %s: %s(%s)@%s\n# " \
+  printf "# %s: %s: %s(%s)@%s%s\n# " \
     "\$?" "\$cd_pwd" $logname_ $whoami_ $(hostname)
 )
