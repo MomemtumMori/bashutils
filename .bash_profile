@@ -1,5 +1,7 @@
 #!/usr/bin/bash
 
+export EDITOR=/usr/bin/vim
+
 alias l="LC_COLLATE=C /bin/ls -CFal --color=always"
 
 init_logname_() {
@@ -16,9 +18,10 @@ init_logname_
 
 # http://stackoverflow.com/a/29310477
 expand_path() {
+  local defaultPath='~/' 
   local path
   local -a pathElements resultPathElements
-  IFS=':' read -r -a pathElements <<<"$1"
+  IFS=':' read -r -a pathElements <<<"${1:-$defaultPath}"
   : "${pathElements[@]}"
   for path in "${pathElements[@]}"; do
     : "$path"
