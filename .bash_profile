@@ -67,12 +67,22 @@ alias cd="cd_"
 cd "$PWD"
 
 cf_db_file="/var/.cf_db_$logname_"
+cf_db_file_fallback="$HOME/.cf_db_$logname_"
 init_cf() {
   if [ ! -e "$cf_db_file" ]; then
-    touch "$cf_db_file"
+    touch "$cf_db_file" >/dev/null 2>&1
+  fi
+  if [ ! -e "$cf_db_file" ] && [ ! -e "$cf_db_file_fallback" ]; then
+    touch "$cf_db_file_fallback"
+  fi
+  if [ -e "$cf_db_file_fallback" ]; then
+    tmp_="$cf_db_file"
+    cf_db_file="$cf_db_file_fallback"
+    cf_db_file_fallback="$tmp"
   fi
 }
 init_cf
+
 
 cf() {
   local fav_path="$1"
