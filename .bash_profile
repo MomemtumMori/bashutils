@@ -1,5 +1,8 @@
 #!/usr/bin/bash
 
+if [ -z "$GXT_" ]; then
+export GXT_=1
+
 export EDITOR=/usr/bin/vim
 
 alias l="LC_COLLATE=C /bin/ls -CFal --color=always"
@@ -106,3 +109,6 @@ PS1=$(
   printf "# %s: %s: %s(%s)@%s%s\n# " \
     "\$?" "\$cd_pwd" $logname_ $whoami_ $(hostname)
 )
+
+
+fi # -z "$GXT_"
