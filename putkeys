@@ -111,20 +111,23 @@ _do_putkeys() # No args
 _do_bashrc() {
     mkdir -p "$HOME/git"
     cd "$HOME/git"
-    if [ -d bashutils ]; then
-        rm -rf bashutils
-    fi
-    git clone git@github.com:gxtaillon/bashutils.git
-    echo ". $HOME/git/bashutils/.bash_profile" >>"$HOME/.bashrc"
-    sed -i -e "s&/var/.cf_db_$(whoami)&$HOME/.cf_db_$(whoami)&g" "$HOME/.bashrc"
+    if [ -z "$GXT_" ]; then
+        if [ -d bashutils ]; then
+            rm -rf bashutils
+        fi
+        git clone git@github.com:gxtaillon/bashutils.git
+        echo ". $HOME/git/bashutils/.bash_profile" >>"$HOME/.bashrc"
+        sed -i -e "s&/var/.cf_db_$(whoami)&$HOME/.cf_db_$(whoami)&g" \
+            "$HOME/.bashrc"
+    else
+        cd bashutils && git pull origin master
+    fi    
 }
 
 
 _do() {
     _do_putkeys
-    if [ -z "$GXT_" ]; then
-        _do_bashrc
-    fi
+    _do_bashrc
 }
 
 _do
