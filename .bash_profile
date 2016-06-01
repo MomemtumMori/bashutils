@@ -5,6 +5,9 @@ export GXT_=1
 
 export EDITOR=/usr/bin/vim
 
+gsettings set org.compiz.core:/org/compiz/profiles/unity/plugins/core/ hsize 4
+gsettings set org.compiz.core:/org/compiz/profiles/unity/plugins/core/ vsize 4
+
 alias l="LC_COLLATE=C /bin/ls -CFal --color=always"
 
 init_logname_() {
