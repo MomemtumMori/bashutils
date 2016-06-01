@@ -1,0 +1,130 @@
+#!/bin/bash
+
+MENAME='putkeys'
+SHLIB_FILE='shlib'
+_ARG_DEBUG=true
+
+############
+# Init
+
+findSelfFromHere() # OUT$_FSFH_directory OUT$_FSFH_file OUT$_FSFH_self
+{
+    local src="${BASH_SOURCE[0]}"    
+    # resolve $src until the file is no longer a symlink
+    while [ -h "$src" ]; do 
+      local directory=`cd -P "$(dirname "$src")" && pwd`
+      src=`readlink "$src"`
+      # if $src was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+      [[ $src != /* ]] && src="$directory/$src" 
+    done
+    directory=`cd -P "$(dirname "$src")" && pwd`
+    
+    _FSFH_directory="$directory"
+    _FSFH_file=`basename $src`
+    _FSFH_self="$_FSFH_directory/$_FSFH_file"
+}
+
+_init() 
+{
+    # SHLIB
+    findSelfFromHere
+
+    local SHLIB_PATH="$_FSFH_directory/$SHLIB_FILE"
+
+    if ! [ -e $SHLIB_PATH ] ; then
+        echo "$MENAME: SHLIB does not exists."
+        exit 1
+    fi
+
+    # Allow SHLIB to init itself
+    SHLIB=false
+
+    # Load it
+    source $SHLIB_PATH
+
+    if [ -z $SHLIB ] || ! $SHLIB ; then
+        echo "$MENAME: SHLIB is incompatible."
+        exit 1
+    fi
+}
+
+_init
+
+
+############
+# Everything keys
+_do_putkeys() # No args
+{
+    # consts
+    local dlogout="$HOME/Bureau"
+    local flogoutsh="$dlogout/.logout.sh"
+    local flogoutdesktop="$dlogout/logout.desktop"
+    local f1='usherbrooke_rsa.bf-ofb'
+    local f2='usherbrooke_rsa.pub.bf-ofb'
+    local o1='usherbrooke_rsa'
+    local o2='usherbrooke_rsa.pub'
+    local f1src="$HOME/p/etc/$f1"
+    local f2src="$HOME/p/etc/$f2"
+    
+    # Get the password to decrypt the files
+    local pass
+    ask pass '' 'Password: ' '' '-s'
+    echo
+    
+    # Pick the output directory for the decrypted files
+    local outdir
+    local defaultOutdir="$HOME/.ssh"
+    ask outdir defaultOutdir 'Output directory: '
+    
+    local f1out="$outdir/$o1"
+    local f2out="$outdir/$o2"
+    
+    # Make sure the directory exists and that it is protected
+    mkdir -p "$outdir"
+    chmod go-rwxXst "$outdir"
+    
+    # Decrypt the files
+    echo "$pass" | openssl bf-ofb -pass stdin -d -in "$f1src" -out "$f1out"
+    echo "$pass" | openssl bf-ofb -pass stdin -d -in "$f2src" -out "$f2out"
+    
+    # Protect them
+    chmod go-rwxXst "$f1out"
+    chmod go-rwxXst "$f1out"
+    
+    # Write the "safe" quick logout script
+    echo "rm $f1out $f2out; gnome-session-quit" > "$flogoutsh"
+    
+    # Write the desktop launcher to the above script
+    echo -e "[Desktop Entry]\nType=Application\nTerminal=true\nName=safe-logout\nExec=$flogoutsh" > "$flogoutdesktop"
+    
+    # Set exec permissions
+    chmod u+x "$flogoutsh"
+    chmod u+x "$flogoutdesktop"
+    
+    # Since the files are ssh keys, add them to the keyring
+    ssh-add "$f1out"
+    
+    # Check that everything is working properly
+    ssh -T git@github.com
+}
+
+_do_bashrc() {
+    mkdir -p "$HOME/git"
+    cd "$HOME/git"
+    if [ -d bashutils ]; then
+        rm -rf bashutils
+    fi
+    git clone git@github.com:gxtaillon/bashutils.git
+    echo ". $HOME/git/bashutils/.bash_profile" >>"$HOME/.bashrc"
+    sed -i -e "s&/var/.cf_db_$(whoami)&$HOME/.cf_db_$(whoami)&g" "$HOME/.bashrc"
+}
+
+
+_do() {
+    _do_putkeys
+    if [ -z "$GXT_" ]; then
+        _do_bashrc
+    fi
+}
+
+_do
