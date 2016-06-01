@@ -4,6 +4,9 @@ if [ -z "$GXT_" ]; then
 export GXT_=1
 
 export EDITOR=/usr/bin/vim
+export LC_ALL=en_US.utf8
+export LANG=$LC_ALL
+export LANGUAGE=$LC_ALL
 
 # set unity workspace size
 gsettings set org.compiz.core:/org/compiz/profiles/unity/plugins/core/ hsize 4
