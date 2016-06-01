@@ -5,10 +5,11 @@ export GXT_=1
 
 export EDITOR=/usr/bin/vim
 
+# set unity workspace size
 gsettings set org.compiz.core:/org/compiz/profiles/unity/plugins/core/ hsize 4
 gsettings set org.compiz.core:/org/compiz/profiles/unity/plugins/core/ vsize 4
 
-alias l="LC_COLLATE=C /bin/ls -CFal --color=always"
+alias l="LC_COLLATE=C /bin/ls -CFal --color=auto"
 
 init_logname_() {
   logname_=$SUDO_USER
@@ -67,7 +68,7 @@ cd_() {
   fi
 }
 alias cd="cd_"
-cd "$PWD"
+cd_ "$PWD"
 
 cf_db_file="/var/.cf_db_$logname_"
 cf_db_file_fallback="$HOME/.cf_db_$logname_"
