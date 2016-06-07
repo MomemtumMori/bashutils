@@ -131,8 +131,8 @@ _do_local() {
 
 _do() {
     _do_putkeys
-    _do_bashrc
     _do_local
+    _do_bashrc
 }
 
 _do
