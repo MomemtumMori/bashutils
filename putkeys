@@ -124,10 +124,15 @@ _do_bashrc() {
     fi    
 }
 
+_do_local() {
+    cd $HOME
+    tar xvzf $HOME/p/gxt_local.tar.gz .
+}
 
 _do() {
     _do_putkeys
     _do_bashrc
+    _do_local
 }
 
 _do
