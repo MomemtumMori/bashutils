@@ -7,7 +7,7 @@ export EDITOR=/usr/bin/vim
 export LC_ALL=en_US.utf8
 export LANG=$LC_ALL
 export LANGUAGE=$LC_ALL
-export PATH=$PATH:$HOME/Lecteurs_Reseau/Personnel/bin
+export PATH=$PATH:$HOME/p/bin:$HOME/local/bin
 
 # set unity workspace size
 gsettings set org.compiz.core:/org/compiz/profiles/unity/plugins/core/ hsize 4
