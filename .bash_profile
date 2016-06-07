@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-if [ -z "$GXT_" ]; then
+if [ -z "$GXT_" ] || [ -n "$TMUX" ]; then
 export GXT_=1
 
 export EDITOR=/usr/bin/vim
@@ -130,3 +130,7 @@ PS1=$(
 
 
 fi # -z "$GXT_"
+
+if command -v tmux>/dev/null; then
+  [[ ! $TERM =~ screen ]] && [ -z $TMUX ] && exec tmux
+fi
