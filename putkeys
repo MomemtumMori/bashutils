@@ -92,7 +92,7 @@ _do_putkeys() # No args
     chmod go-rwxXst "$f1out"
     
     # Write the "safe" quick logout script
-    echo "rm $f1out $f2out; gnome-session-quit" > "$flogoutsh"
+    echo "rm $f1out $f2out; rm -rf $HOME/.mozilla/firefox; gnome-session-quit" > "$flogoutsh"
     
     # Write the desktop launcher to the above script
     echo -e "[Desktop Entry]\nType=Application\nTerminal=true\nName=safe-logout\nExec=$flogoutsh" > "$flogoutdesktop"
