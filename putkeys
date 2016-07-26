@@ -122,6 +122,7 @@ _do_bashrc() {
     else
         cd bashutils && git pull origin master
     fi    
+    cp -a "$HOME/git/bashutils/hometc/." "$HOME/"
 }
 
 _do_local() {
