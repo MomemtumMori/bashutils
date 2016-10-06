@@ -145,6 +145,11 @@ PS1=$(
 )
 
 
+sshx () {
+  scp ~/git/bashutils/.bash_profile $1:~/.gxtp
+  ssh $1 
+}
+
 fi # -z "$GXT_"
 
 if command -v tmux>/dev/null; then
