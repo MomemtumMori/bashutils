@@ -9,9 +9,25 @@ export LANG=$LC_ALL
 export LANGUAGE=$LC_ALL
 export PATH=$PATH:$HOME/p/bin:$HOME/local/bin
 
-# set unity workspace size
-gsettings set org.compiz.core:/org/compiz/profiles/unity/plugins/core/ hsize 4
-gsettings set org.compiz.core:/org/compiz/profiles/unity/plugins/core/ vsize 4
+platform=unknown
+uname_=$(which uname)
+if [ -x "$uname_" ]; then
+  uname_str=$(uname)
+  if [ "$uname_str" == "Linux" ]; then
+    platform=linux
+  fi
+  if [ "$uname_str" == "MSYS_NT-6.1" ]; then
+    platform=windows
+  fi
+fi
+
+if [ "$platform" == "linux" ]; then
+  if [ -x "$(which gsettings)" ]; then
+    # set unity workspace size
+    gsettings set org.compiz.core:/org/compiz/profiles/unity/plugins/core/ hsize 4
+    gsettings set org.compiz.core:/org/compiz/profiles/unity/plugins/core/ vsize 4
+  fi
+fi
 
 alias l="LC_COLLATE=C /bin/ls -CFal --color=auto"
 
