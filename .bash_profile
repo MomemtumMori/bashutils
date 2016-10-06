@@ -140,13 +140,13 @@ cf() {
 
 
 PS1=$(
-  printf "# %s: %s: %s(%s)@%s%s\n# " \
+  printf "# \e[36m%s\e[0m: \e[36m%s\e[0m: \e[36m%s(%s)@%s%s\n\e[0m# " \
     "\$?" "\$cd_pwd" $logname_ $whoami_ $(hostname)
 )
 
 
 sshx () {
-  scp ~/git/bashutils/.bash_profile $1:~/.gxtp
+  scp ~/git/bashutils/.bash_profile $1:/tmp/.gxtp
   ssh $1 
 }
 
